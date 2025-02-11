@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>聊天记录管理工具</title>
+    <link href="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --star-color: rgba(255, 255, 255, 0.8);
+            --geometric-color: rgba(100, 149, 237, 0.1);
+        }
+
+        body {
+            background: linear-gradient(45deg, #0f0c29, #302b63, #24243e);
+            min-height: 100vh;
+            position: relative;
+            overflow: hidden;
+            margin: 0;
+        }
+
+        #particle-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 0;
+        }
+
+        .stars {
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        @keyframes twinkle {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 1; }
+        }
+
+        .star {
+            position: absolute;
+            background: var(--star-color);
+            border-radius: 50%;
+            animation: twinkle 1.5s infinite ease-in-out;
+        }
+
+        .geometric-pattern {
+            position: fixed;
+            width: 200%;
+            height: 200%;
+            background:
+                repeating-linear-gradient(
+                    45deg,
+                    var(--geometric-color),
+                    var(--geometric-color) 10px,
+                    transparent 10px,
+                    transparent 20px
+                ),
+                repeating-linear-gradient(
+                    -45deg,
+                    var(--geometric-color),
+                    var(--geometric-color) 10px,
+                    transparent 10px,
+                    transparent 20px
+                );
+            transform: rotate(15deg);
+            z-index: 0;
+            opacity: 0.3;
+        }
+
+        .main-container {
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 30px;
+            background: rgba(255, 255, 255, 0.98);
+            border-radius: 15px;
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.3);
+            position: relative;
+            z-index: 1;
+        }
+
+        .upload-section {
+            margin-bottom: 2rem;
+            padding: 25px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(10px) saturate(180%);
+        }
+
+        .export-section {
+            padding: 25px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            background: rgba(248, 249, 250, 0.85);
+            backdrop-filter: blur(10px) saturate(180%);
+        }
+
+        h1, h4, p, label {
+            color: #2c3e50 !important;
+        }
+
+        .text-muted {
+            color: #7f8c8d !important;
+        }
+
+        .btn-export {
+            margin-right: 10px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-export:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-export::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                120deg,
+                transparent,
+                rgba(255, 255, 255, 0.3),
+                transparent
+            );
+            transition: 0.5s;
+        }
+
+        .btn-export:hover::before {
+            left: 100%;
+        }
+
+        h1 {
+            color: #ffffff;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+            font-weight: 700;
+            letter-spacing: 2px;
+        }
+    </style>
+</head>
+<body class="bg-light">
+    <canvas id="particle-canvas"></canvas>
+    
+    <div class="main-container">
+        <h1 class="mb-4 text-center">✨ 聊天记录管理工具 ✨</h1>
+        
+        <!-- 上传区 -->
+        <div class="upload-section bg-white">
+            <h4 class="mb-3">上传数据库文件</h4>
+            <form action="/upload" method="post" enctype="multipart/form-data">
+                <div class="mb-3">
+                    <input class="form-control" type="file" name="file" accept=".db" required>
+                </div>
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-upload"></i> 上传数据库
+                </button>
+            </form>
+            
+            {% if message %}
+            <div class="alert alert-{{ message_type }} status-alert mt-3">
+                {{ message }}
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- 导出区 -->
+        {% if show_export %}
+        <div class="export-section mt-4">
+            <h4 class="mb-3">选择导出格式</h4>
+            <div class="d-grid gap-2">
+                <a href="/export?format=csv" class="btn btn-success btn-export">
+                    <i class="bi bi-file-earmark-spreadsheet"></i> 导出CSV
+                </a>
+                <a href="/export?format=json" class="btn btn-info btn-export">
+                    <i class="bi bi-file-code"></i> 导出JSON
+                </a>
+            </div>
+            <div class="mt-3 text-muted small">
+                提示：导出操作基于最新上传的数据库文件
+            </div>
+        </div>
+        {% else %}
+        <div class="export-section mt-4 text-center py-4">
+            <p class="text-muted">请先上传数据库文件以启用导出功能</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <script src="https://cdn.bootcdn.net/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script>
+        class Particle {
+            constructor(canvas, ctx) {
+                this.canvas = canvas;
+                this.ctx = ctx;
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                this.velocity = {
+                    x: (Math.random() - 0.5) * 0.5,
+                    y: (Math.random() - 0.5) * 0.5
+                };
+                this.radius = Math.random() * 2;
+                this.links = [];
+            }
+
+            update() {
+                this.x += this.velocity.x;
+                this.y += this.velocity.y;
+
+                // 边界反弹
+                if (this.x < 0 || this.x > this.canvas.width) this.velocity.x *= -1;
+                if (this.y < 0 || this.y > this.canvas.height) this.velocity.y *= -1;
+            }
+
+            draw() {
+                this.ctx.beginPath();
+                this.ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                this.ctx.fillStyle = 'rgba(100, 149, 237, 0.8)';
+                this.ctx.fill();
+            }
+        }
+
+        class ParticleNetwork {
+            constructor() {
+                this.canvas = document.getElementById('particle-canvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.particles = [];
+                this.mouse = { x: 0, y: 0, radius: 100 };
+                this.init();
+            }
+
+            init() {
+                this.resize();
+                window.addEventListener('resize', () => this.resize());
+
+                // 创建粒子
+                for (let i = 0; i < 100; i++) {
+                    this.particles.push(new Particle(this.canvas, this.ctx));
+                }
+
+                // 鼠标移动跟踪
+                this.canvas.addEventListener('mousemove', (e) => {
+                    this.mouse.x = e.clientX;
+                    this.mouse.y = e.clientY;
+                });
+
+                this.animate();
+            }
+
+            resize() {
+                this.canvas.width = window.innerWidth;
+                this.canvas.height = window.innerHeight;
+            }
+
+            animate() {
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                
+                // 更新并绘制粒子
+                this.particles.forEach(particle => {
+                    particle.update();
+                    particle.draw();
+                });
+
+                // 绘制连线
+                this.drawLinks();
+                requestAnimationFrame(() => this.animate());
+            }
+
+            drawLinks() {
+                for (let i = 0; i < this.particles.length; i++) {
+                    for (let j = i + 1; j < this.particles.length; j++) {
+                        const p1 = this.particles[i];
+                        const p2 = this.particles[j];
+                        const distance = Math.sqrt(
+                            Math.pow(p2.x - p1.x, 2) +
+                            Math.pow(p2.y - p1.y, 2)
+                        );
+
+                        // 粒子间连线
+                        if (distance < 150) {
+                            this.ctx.beginPath();
+                            this.ctx.strokeStyle = `rgba(100, 149, 237, ${1 - distance/150})`;
+                            this.ctx.lineWidth = 0.5;
+                            this.ctx.moveTo(p1.x, p1.y);
+                            this.ctx.lineTo(p2.x, p2.y);
+                            this.ctx.stroke();
+                        }
+
+                        // 鼠标连线
+                        const mouseDistance = Math.sqrt(
+                            Math.pow(this.mouse.x - p1.x, 2) +
+                            Math.pow(this.mouse.y - p1.y, 2)
+                        );
+                        if (mouseDistance < this.mouse.radius) {
+                            this.ctx.beginPath();
+                            this.ctx.strokeStyle = `rgba(255, 255, 255, ${1 - mouseDistance/this.mouse.radius})`;
+                            this.ctx.lineWidth = 0.8;
+                            this.ctx.moveTo(p1.x, p1.y);
+                            this.ctx.lineTo(this.mouse.x, this.mouse.y);
+                            this.ctx.stroke();
+                        }
+                    }
+                }
+            }
+        }
+
+        // 初始化粒子网络
+        document.addEventListener('DOMContentLoaded', () => {
+            new ParticleNetwork();
+        });
+    </script>
+</body>
+</html>
